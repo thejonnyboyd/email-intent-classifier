@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Email Intent Classifier — API Gateway + Lambda + Bedrock
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        AWS_ACCOUNT_ID: !Ref AWS::AccountId
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-haiku-3-5-20241022-v1:0
+    Description: Bedrock model ID to use for classification
+
+  StageName:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+    Description: API Gateway deployment stage
+
+Resources:
+
+  EmailClassifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "email-intent-classifier-${StageName}"
+      CodeUri: lambda/
+      Handler: handler.lambda_handler
+      Description: Classifies email intent, sentiment, and routing via Bedrock
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource:
+                - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+      Events:
+        ClassifyPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EmailClassifierApi
+            Path: /classify
+            Method: POST
+
+  EmailClassifierApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "email-intent-classifier-api-${StageName}"
+      StageName: !Ref StageName
+      EndpointConfiguration:
+        Type: REGIONAL
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingBurstLimit: 50
+          ThrottlingRateLimit: 25
+      Cors:
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiEndpoint:
+    Description: POST to this URL to classify an email
+    Value: !Sub "https://${EmailClassifierApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}/classify"
+    Export:
+      Name: !Sub "EmailClassifierEndpoint-${StageName}"
+
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt EmailClassifierFunction.Arn
+
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref EmailClassifierFunction
