@@ -1,11 +1,12 @@
 import json
+import logging
 import os
 import re
 import boto3
-from dotenv import load_dotenv
 from botocore.exceptions import ClientError
 
-load_dotenv()
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 MODEL_ID = os.environ.get("BEDROCK_MODEL_ID")
 AWS_REGION = os.environ.get("AWS_REGION")
@@ -110,6 +111,8 @@ def lambda_handler(event, context):
 
     except ClientError as exc:
         error_code = exc.response["Error"]["Code"]
+        error_message = exc.response["Error"]["Message"]
+        logger.error("Bedrock ClientError: %s - %s", error_code, error_message)
         return {
             "statusCode": 502,
             "headers": {"Content-Type": "application/json"},

@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "email-intent-classifier"
+resolve_s3 = true
+s3_prefix = "email-intent-classifier"
+region = "eu-west-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "BedrockModelId=\"anthropic.claude-haiku-4-5-20251001-v1:0\" StageName=\"prod\""
+image_repositories = []
+
+[default.global.parameters]
+region = "eu-west-1"
